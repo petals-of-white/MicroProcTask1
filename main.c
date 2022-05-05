@@ -1,12 +1,22 @@
+#define F_CPU 16000000UL
+
 #include <avr/io.h>
 #include <util/delay.h> //біблійотека з фунціями чаосової затримки
+#include <stdio.h>
 
 // ******* Глобальні змінні **********
-const unsigned char
-    SWITCH_1 = PINB1,  // K2
-    SWITCH_2 = PINB3,  // K4
-    LED_PORT = PORTB6, // L3
-    SIGNAL = 0x2C;     // Сигнал - 1 0 1 1 0 0
+
+// K2
+#define SWITCH_1 1
+
+// K4
+#define SWITCH_2 3
+
+// L3
+#define LED_PORT 6
+
+// Сигнал - 1 0 1 1 0 0
+#define SIGNAL 0x2C
 
 // ******** Власні функції ********
 
@@ -24,12 +34,11 @@ void emit_zero();
 
 int main(void)
 {
-    // ** ЛОКАЛЬНІ ЗМІННІ **
+    //  ЛОКАЛЬНІ ЗМІННІ
     const unsigned char highest_bit_in_signal = get_highest_order_set_bit(SIGNAL);
-    unsigned char bit_shift = highest_bit_in_signal;
+    volatile char bit_shift = highest_bit_in_signal;
 
-    // ***** КОД ПРЕПРОЦЕСОРА ******
-
+// ***** КОД ПРЕПРОЦЕСОРА ******
 // Crystal Oscillator division factor: 1
 #pragma optsize -
     CLKPR = (1 << CLKPCE);
@@ -52,21 +61,21 @@ int main(void)
     // Function: Bit7=Out Bit6=Out Bit5=Out Bit4=Out Bit3=In Bit2=In Bit1=In Bit0=In
     DDRB = (1 << DDB7) | (1 << DDB6) | (1 << DDB5) | (1 << DDB4) | (0 << DDB3) | (0 << DDB2) | (0 << DDB1) | (0 << DDB0);
 
-    // State: Bit7=0 Bit6=0 Bit5=0 Bit4=0 Bit3=P Bit2=P Bit1=P Bit0=P
+    // State: Bit7=0  Bit6=0  Bit5=0 Bit4=0 Bit3=P Bit2=P Bit1=P Bit0=P
     PORTB = (0 << PORTB7) | (0 << PORTB6) | (0 << PORTB5) | (0 << PORTB4) | (1 << PORTB3) | (1 << PORTB2) | (1 << PORTB1) << (1 << PORTB0);
 
     // *** ВІЧНИЙ ЦИКЛ ***
     while (1)
     {
-        unsigned char switch_1_on = PORTB & (1 << SWITCH_1);
-        unsigned char switch_2_on = PORTB & (1 << SWITCH_2);
+        volatile int switch_1_on = (PINB & (1 << SWITCH_1)) != 0;
+        volatile int switch_2_on = (PINB & (1 << SWITCH_2)) != 0;
 
-        if (switch_1_on && switch_2_on) // якщо обидва ключі ввімкнено
+        if (switch_1_on & switch_2_on == 1) // якщо обидва ключі ввімкнено
         {
             if (bit_shift >= 0) // перевіряємо, чи залишились біти числа, які треба передати спахалами
             {
-                emit_bit_from_number(SIGNAL, bit_shift); // посилаємо сигнал 0 або 1
-                --bit_shift;                             // переходимо до наступного
+                emit_bit_from_number(SIGNAL, bit_shift); // посилаємо відповідно до потрібного біта
+                --bit_shift;                             // переходимо до наступного біта
             }
         }
         else
@@ -78,15 +87,23 @@ int main(void)
 
 void emit_one()
 {
+    // Умикаємо діод, через півсекунди вимикаємо
     PORTB |= (1 << LED_PORT);
     _delay_ms(500);
     PORTB &= ~(1 << LED_PORT);
+
+    // Павза
+    _delay_ms(500);
 }
 void emit_zero()
 {
+    // Умикаємо діод, через 2 секунди вимикаємо
     PORTB |= (1 << LED_PORT);
-    _delay_ms(1000);
+    _delay_ms(2000);
     PORTB &= ~(1 << LED_PORT);
+
+    // Павза
+    _delay_ms(500);
 }
 unsigned char get_highest_order_set_bit(unsigned char number)
 {
@@ -105,7 +122,7 @@ unsigned char get_highest_order_set_bit(unsigned char number)
 }
 void emit_bit_from_number(unsigned char number, unsigned char bitNumber)
 {
-    if (number && (1 << bitNumber))
+    if (number & (1 << bitNumber))
         emit_one();
     else
         emit_zero();
