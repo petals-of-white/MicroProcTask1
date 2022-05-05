@@ -1,3 +1,4 @@
+//#define SIMULATION
 #define F_CPU 16000000UL
 
 #include <avr/io.h>
@@ -36,7 +37,7 @@ int main(void)
 {
     //  ЛОКАЛЬНІ ЗМІННІ
     const unsigned char highest_bit_in_signal = get_highest_order_set_bit(SIGNAL);
-    volatile char bit_shift = highest_bit_in_signal;
+    volatile signed char bit_shift = highest_bit_in_signal;
 
 // ***** КОД ПРЕПРОЦЕСОРА ******
 // Crystal Oscillator division factor: 1
@@ -87,6 +88,7 @@ int main(void)
 
 void emit_one()
 {
+#ifndef SIMULATION
     // Умикаємо діод, через півсекунди вимикаємо
     PORTB |= (1 << LED_PORT);
     _delay_ms(500);
@@ -94,9 +96,11 @@ void emit_one()
 
     // Павза
     _delay_ms(500);
+#endif
 }
 void emit_zero()
 {
+#ifndef SIMULATION
     // Умикаємо діод, через 2 секунди вимикаємо
     PORTB |= (1 << LED_PORT);
     _delay_ms(2000);
@@ -104,6 +108,7 @@ void emit_zero()
 
     // Павза
     _delay_ms(500);
+#endif
 }
 unsigned char get_highest_order_set_bit(unsigned char number)
 {
